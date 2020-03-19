@@ -161,55 +161,15 @@ get_pixel_value(unsigned int x, unsigned int y)
     return k;
 }
 
-void
-paint(void)
+
+void paint_ip(const char *t, unsigned int i)
 {
-    char buf[512];
-    unsigned int line = 1;
-    while (fgets(buf, 512, stdin)) {
-	unsigned int i;
+	int k;
 	unsigned int x;
 	unsigned int y;
 	int color = -1;
-	int k;
-	char *strtok_arg = buf;
-	char *t;
-
-	/*
-	 * In animated gif mode the first field is a timestamp
-	 */
-	if (anim_gif.secs) {
-	    char *e;
-	    t = strtok(strtok_arg, whitespace);
-	    strtok_arg = NULL;
-	    if (NULL == t)
-		continue;
-	    anim_gif.input_time = strtod(t, &e);
-	    if (e == t)
-		errx(1, "bad input parsing time on line %d: %s", line, t);
-	    if ((time_t) anim_gif.input_time > anim_gif.next_output) {
-		savegif(0);
-		anim_gif.next_output = (time_t) anim_gif.input_time + anim_gif.secs;
-	    }
-	}
-
-	/*
-	 * next field is an IP address.  We also accept its integer notation
-	 * equivalent.
-	 */
-	t = strtok(strtok_arg, whitespace);
-	strtok_arg = NULL;
-	if (NULL == t)
-	    continue;
-	if (strspn(t, "0123456789") == strlen(t))
-	    i = strtoul(t, NULL, 10);
-	else if (1 == inet_pton(AF_INET, t, &i))
-	    i = ntohl(i);
-	else
-	    errx(1, "bad input parsing IP on line %d: %s", line, t);
-
 	if (0 == xy_from_ip(i, &x, &y))
-	    continue;
+        return;
 	if (debug)
 	    fprintf(stderr, "%s => %u => (%d,%d)\n", t, i, x, y);
 
@@ -218,7 +178,6 @@ paint(void)
 	 * logarithmically scaled by us.  If no value is given, then find the
 	 * existing value at that point and increment by one.
 	 */
-	t = strtok(NULL, whitespace);
 	if (NULL != t) {
 	    k = atoi(t);
 	    if (accumulate_counts)
@@ -240,6 +199,72 @@ paint(void)
 	color = colors[k];
 
 	gdImageSetPixel(image, x, y, color);
+}
+
+void draw_cidr(const char *t, unsigned int firsti, unsigned int lasti)
+{
+    for (unsigned int i = firsti; i <= lasti; i++) {
+        paint_ip(t, i);
+    }
+}
+
+void
+paint(void)
+{
+    char buf[512];
+    unsigned int line = 1;
+    while (fgets(buf, 512, stdin)) {
+	unsigned int i;
+    unsigned int lasti;
+    int cidr = 0;
+    int rslash;
+	char *strtok_arg = buf;
+	char *t;
+
+	/*
+	 * In animated gif mode the first field is a timestamp
+	 */
+	if (anim_gif.secs) {
+	    char *e;
+	    t = strtok(strtok_arg, whitespace);
+	    strtok_arg = NULL;
+	    if (NULL == t)
+            continue;
+	    anim_gif.input_time = strtod(t, &e);
+	    if (e == t)
+		errx(1, "bad input parsing time on line %d: %s", line, t);
+	    if ((time_t) anim_gif.input_time > anim_gif.next_output) {
+		savegif(0);
+		anim_gif.next_output = (time_t) anim_gif.input_time + anim_gif.secs;
+	    }
+	}
+
+	/*
+	 * next field is an IP address.  We also accept its integer notation
+	 * equivalent.
+	 */
+	t = strtok(strtok_arg, whitespace);
+	strtok_arg = NULL;
+	if (NULL == t)
+	    continue;
+	if (strspn(t, "0123456789") == strlen(t))
+	    i = strtoul(t, NULL, 10);
+    else if (strchr(t, '/') != NULL) {
+        cidr = 1;
+        cidr_parse(t, &i, &lasti, &rslash);
+    }
+	else if (1 == inet_pton(AF_INET, t, &i))
+	    i = ntohl(i);
+	else
+	    errx(1, "bad input parsing IP on line %d: %s", line, t);
+
+	t = strtok(NULL, whitespace);
+
+    if (cidr) {
+        draw_cidr(t, i, lasti);
+    } else {
+        paint_ip(t, i);
+    }
 	line++;
     }
 }

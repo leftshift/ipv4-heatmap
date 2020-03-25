@@ -162,7 +162,7 @@ get_pixel_value(unsigned int x, unsigned int y)
 }
 
 
-void paint_ip(const char *t, unsigned int i)
+void paint_ip(const char *t, int increment, unsigned int i)
 {
 	int k;
 	unsigned int x;
@@ -190,7 +190,7 @@ void paint_ip(const char *t, unsigned int i)
 	    }
 	} else {
 	    k = get_pixel_value(x, y);
-	    k++;
+	    k = k + increment;
 	}
 	if (k < 0)
 	    k = 0;
@@ -201,10 +201,10 @@ void paint_ip(const char *t, unsigned int i)
 	gdImageSetPixel(image, x, y, color);
 }
 
-void draw_cidr(const char *t, unsigned int firsti, unsigned int lasti)
+void draw_cidr(const char *t, int increment, unsigned int firsti, unsigned int lasti)
 {
     for (unsigned int i = firsti; i <= lasti; i++) {
-        paint_ip(t, i);
+        paint_ip(t, increment, i);
     }
 }
 
@@ -217,6 +217,7 @@ paint(void)
 	unsigned int i;
     unsigned int lasti;
     int cidr = 0;
+    int increment = 1;
     int rslash;
 	char *strtok_arg = buf;
 	char *t;
@@ -247,6 +248,11 @@ paint(void)
 	strtok_arg = NULL;
 	if (NULL == t)
 	    continue;
+    if (t[0] == '!') {
+        increment = -1;
+        // don't include first char in further matching
+        t++;
+    }
 	if (strspn(t, "0123456789") == strlen(t))
 	    i = strtoul(t, NULL, 10);
     else if (strchr(t, '/') != NULL) {
@@ -261,9 +267,9 @@ paint(void)
 	t = strtok(NULL, whitespace);
 
     if (cidr) {
-        draw_cidr(t, i, lasti);
+        draw_cidr(t, increment, i, lasti);
     } else {
-        paint_ip(t, i);
+        paint_ip(t, increment, i);
     }
 	line++;
     }
